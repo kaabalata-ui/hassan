@@ -20,20 +20,20 @@
         .btn { background: var(--sky-dark); color: white; border: none; padding: 12px; border-radius: 10px; cursor: pointer; font-weight: bold; width: 100%; font-size: 15px; margin-top: 5px; }
         .btn-sm { width: auto; padding: 5px 10px; font-size: 12px; margin: 2px; border-radius: 8px; cursor: pointer; border: none; color: white; }
         .btn-green { background: var(--wa-green); }
-        .btn-red { background: var(--absent); }
-        .btn-orange { background: var(--edit); }
         .btn-sms { background: var(--sms-blue); }
         .btn-success { background: var(--success); }
+        .btn-orange { background: var(--edit); }
+        .btn-red { background: var(--absent); }
         .btn-done { background: var(--gray-done) !important; opacity: 0.7; cursor: default; }
         .box-blue { background: #f0f9ff; padding: 15px; border-radius: 15px; border: 1px solid #bae6fd; margin-bottom: 20px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; font-size: 13px; }
         th, td { padding: 8px; border: 1px solid #e2e8f0; text-align: center; }
         th { background: #f8fafc; color: var(--sky-dark); }
-        .student-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 15px; }
-        .student-card { padding: 15px; border: 2px solid #f1f5f9; border-radius: 12px; text-align: center; cursor: pointer; background: white; transition: 0.2s; }
+        .student-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 15px; }
+        .student-card { padding: 15px; border: 2px solid #f1f5f9; border-radius: 12px; text-align: center; cursor: pointer; background: white; transition: 0.2s; position: relative; }
         .student-card.selected { background: #fee2e2; border-color: var(--absent); color: var(--absent); font-weight: bold; }
-        
-        .print-footer { display: none; margin-top: 40px; text-align: center; }
+        .student-card.already-saved { background: #fecaca; border-color: #b91c1c; color: #b91c1c; font-weight: bold; cursor: default; }
+        .student-card.already-saved::after { content: "✓ مسجل"; position: absolute; top: 2px; right: 5px; font-size: 9px; }
 
         @media print {
             .no-print, .btn, .btn-sm, .nav-link, .nav-buttons, input, select, canvas, .details-btn { display: none !important; }
@@ -42,7 +42,6 @@
             .section { display: block !important; box-shadow: none; padding: 0; }
             table { font-size: 14px; width: 100%; border: 1px solid black; }
             th, td { border: 1px solid black; color: black !important; padding: 10px; }
-            .print-footer { display: flex; justify-content: space-around; }
         }
         footer { position: fixed; bottom: 0; left: 0; width: 100%; background: white; border-top: 1px solid #e2e8f0; padding: 12px 0; text-align: center; font-size: 14px; z-index: 1000; }
     </style>
@@ -52,8 +51,8 @@
 <div class="container">
     <header>
         <div class="nav-buttons no-print">
-            <span class="nav-link" onclick="accessControl('admin')">⚙️ دخول الإدارة</span>
-            <span class="nav-link" onclick="accessControl('home')">📝 دخول المعلم</span>
+            <span class="nav-link" onclick="accessControl('admin')">⚙️ الإدارة</span>
+            <span class="nav-link" onclick="accessControl('home')">👤 دخول المعلم</span>
         </div>
         <h2 style="margin:0; color:var(--sky-dark); font-size: 22px;">نظام الغياب الذكي</h2>
         <div class="school-info">
@@ -67,7 +66,7 @@
     <div id="syncStatus" class="no-print" style="text-align: center; font-size: 11px; font-weight: bold; margin-bottom: 10px; color: #0369a1;">جاري التزامن...</div>
 
     <div id="loginPage" class="section active no-print" style="text-align: center;">
-        <h3>دخول النظام</h3>
+        <h3>مرحباً بك.. يرجى الدخول</h3>
         <input type="password" id="passInput" placeholder="أدخل الرمز السري" style="max-width:250px"><br>
         <button class="btn" style="max-width:250px" onclick="verifyAccess()">دخول</button>
     </div>
@@ -75,9 +74,8 @@
     <div id="home" class="section no-print">
         <h3 id="dayDisplay">📝 تسجيل الغياب</h3>
         <select id="classSel" onchange="renderStudents()"></select>
-        
+        <div id="classStatusAlert" style="margin-bottom:10px;"></div>
         <div id="gridArea"></div>
-        
         <div id="footerAction" style="display:none; margin-top:20px;">
             <div style="display: flex; gap: 10px;">
                 <button class="btn" style="flex: 2;" onclick="saveAbsenceOnly()">حفظ غياب الطلاب المحددين ☁️</button>
@@ -89,22 +87,42 @@
     <div id="admin" class="section">
         
         <div class="box-blue no-print">
-            <h4>✏️ إدارة الفصول والطلاب</h4>
+            <h4>💾 النسخ الاحتياطي وتصدير البيانات</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <button class="btn-sm btn-green" onclick="exportBackup()">📥 تصدير نسخة كاملة</button>
+                <button class="btn-sm btn-orange" onclick="exportStudentsOnly()">📋 بيانات الطلاب فقط</button>
+                <label class="btn-sm btn-sms" style="text-align: center; line-height: 25px; cursor: pointer; grid-column: span 2;">
+                    📤 استيراد نسخة احتياطية
+                    <input type="file" hidden onchange="importBackup(this)">
+                </label>
+            </div>
+        </div>
+
+        <div class="box-blue no-print">
+            <h4>✏️ إدارة الفصول والطلاب (تعديل مباشر)</h4>
             <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom:10px;">
                 <select id="manageClassSel" onchange="renderManageTable()" style="flex: 2; min-width: 150px;"></select>
                 <input type="text" id="renameClassInput" placeholder="تغيير مسمى الصف" style="flex: 1; min-width: 150px;">
                 <button class="btn-sm btn-orange" onclick="renameClass()">تعديل المسمى</button>
+                <button class="btn-sm btn-red" onclick="deleteWholeClass()">حذف الصف</button>
             </div>
             
             <div style="background: #fff; padding: 10px; border-radius: 10px; border: 1px dashed var(--sky-main); margin-bottom: 10px;">
                 <h5 style="margin: 0 0 10px 0;">➕ إضافة طالب جديد لهذا الصف</h5>
                 <div style="display: flex; gap: 5px;">
-                    <input type="text" id="newStudentName" placeholder="اسم الطالب الثلاثي" style="flex:2">
-                    <input type="tel" id="newStudentPhone" placeholder="رقم ولي الأمر" style="flex:1">
+                    <input type="text" id="newStudentName" placeholder="اسم الطالب" style="flex:2">
+                    <input type="tel" id="newStudentPhone" placeholder="رقم الهاتف" style="flex:1">
                     <button class="btn-sm btn-green" onclick="addNewStudentToClass()">إضافة</button>
                 </div>
             </div>
             <div id="manageTableArea" style="overflow-x: auto;"></div>
+        </div>
+
+        <div class="box-blue no-print">
+            <h4>➕ إضافة صف جديد (لصق بالجملة)</h4>
+            <input type="text" id="newClsName" placeholder="اسم الصف (مثال: 9/1)">
+            <textarea id="bulkPaste" rows="3" placeholder="الصق الأسماء والأرقام هنا..."></textarea>
+            <button class="btn-sm btn-orange" style="width:100%" onclick="addBulk()">حفظ الصف بالكامل</button>
         </div>
 
         <div class="box-blue">
@@ -114,23 +132,15 @@
                 <button class="btn-sm btn-orange" onclick="window.print()" style="padding: 0 20px;">🖨️ طباعة كشف اليوم</button>
             </div>
             <div id="adminMessenger"></div>
-            <div class="print-footer">
-                <div><p>يعتمد/ مدير المدرسة</p><br><p>____________</p></div>
-                <div><p>مشرف غياب الطلاب</p><br><p>____________</p></div>
-            </div>
         </div>
 
         <div class="box-blue">
-            <h4 class="no-print">📈 أرشيف سجلات الصفوف</h4>
+            <h4 class="no-print">📈 أرشيف سجلات الصفوف (تعديل وحذف)</h4>
             <div style="display:flex; gap:10px;" class="no-print">
                 <select id="reportClassSel" onchange="generateClassReport()" style="flex:2"></select>
                 <button class="btn-sm btn-orange" onclick="window.print()" style="flex:1">🖨️ طباعة سجل الصف</button>
             </div>
             <div id="classReportArea"></div>
-            <div class="print-footer">
-                <div><p>يعتمد/ مدير المدرسة</p><br><p>____________</p></div>
-                <div><p>مشرف غياب الطلاب</p><br><p>____________</p></div>
-            </div>
         </div>
 
         <div class="box-blue no-print">
@@ -146,20 +156,21 @@
             <h4>🔐 الإعدادات</h4>
             <input type="text" id="teacherPassEdit" placeholder="رمز المعلم">
             <input type="text" id="adminPassEdit" placeholder="رمز الإدارة">
-            <textarea id="msgTemplate" rows="2"></textarea>
-            <button class="btn-sm btn-orange" style="width:100%" onclick="updateSettings()">حفظ</button>
+            <textarea id="msgTemplate" rows="2" placeholder="قالب الرسالة.."></textarea>
+            <p style="font-size:11px; color:gray; margin-top:0;">استخدم [name] لاسم الطالب، و [class] لاسم الصف.</p>
+            <button class="btn-sm btn-orange" style="width:100%" onclick="updateSettings()">حفظ الإعدادات</button>
         </div>
     </div>
 </div>
 
-<footer class="no-print">تصميم وتطوير: <strong>حسن البريكي/95367258</strong></footer>
+<footer class="no-print">إعداد وتطوير: <strong>حسن البريكي</strong></footer>
 
 <script>
     const cloudURL = "https://script.google.com/macros/s/AKfycbz21Hf8IdV6w4sIXXEo3ajFdKon173UO2-iXBu1g5lAY2qsFF8-u_8VqHrJMV-bgrINnA/exec"; 
     
-    let db = JSON.parse(localStorage.getItem('abs_v6_final')) || { 
+    let db = JSON.parse(localStorage.getItem('abs_v14_final')) || { 
         classes: {}, adminPin: "1122", teacherPin: "1234", archive: [],
-        template: "نحيطكم علماً بغياب الطالب: [name] اليوم."
+        template: "نحيطكم علماً بغياب الطالب: [name] من صف: [class] اليوم."
     };
 
     let myChart = null;
@@ -169,7 +180,7 @@
         try {
             await fetch(cloudURL, { method: "POST", body: JSON.stringify(db) });
             document.getElementById('syncStatus').innerText = "✅ السحابة محدثة";
-        } catch (e) { document.getElementById('syncStatus').innerText = "⚠️ فشل التزامن"; }
+        } catch (e) { document.getElementById('syncStatus').innerText = "⚠️ وضع محلي"; }
     }
 
     async function loadFromCloud() {
@@ -181,103 +192,31 @@
         } catch (e) { document.getElementById('syncStatus').innerText = "⚠️ وضع محلي"; }
     }
 
-    function save() { localStorage.setItem('abs_v6_final', JSON.stringify(db)); syncToCloud(); }
+    function save() { localStorage.setItem('abs_v14_final', JSON.stringify(db)); syncToCloud(); }
 
-    // ميزة: تسجيل "لا يوجد غياب"
-    function markNoAbsence() {
-        const cls = document.getElementById('classSel').value;
-        if(!cls) return alert("يرجى اختيار الصف");
-        const today = new Date().toLocaleDateString('ar-EG');
-        
-        db.archive.push({ 
-            name: "✅ لا يوجد غياب", 
-            phone: "", 
-            class: cls, 
-            date: today, 
-            ts: Date.now(), 
-            sent: true // لا يحتاج مراسلة
-        });
-        
-        save();
-        alert("تم تسجيل: (لا يوجد غياب) لصف " + cls);
-        location.reload();
-    }
-
-    // إدارة الطلاب
-    function addNewStudentToClass() {
-        const cls = document.getElementById('manageClassSel').value;
-        const name = document.getElementById('newStudentName').value.trim();
-        const phone = document.getElementById('newStudentPhone').value.trim();
-        if(!cls || !name) return alert("أكمل البيانات");
-        db.classes[cls].push({ name: name, phone: phone });
-        save(); renderManageTable();
-        document.getElementById('newStudentName').value = ""; document.getElementById('newStudentPhone').value = "";
-    }
-
-    function loadAdminMessenger() {
-        const area = document.getElementById('adminMessenger');
-        const dIn = document.getElementById('historyDateSelector').value;
-        if(!dIn) return;
-        const locD = new Date(dIn).toLocaleDateString('ar-EG');
-        const dayAbs = db.archive.filter(a => a.date === locD);
-        if(dayAbs.length === 0) return area.innerHTML = "لا يوجد بيانات لهذا اليوم";
-        
-        let h = `<h3 style="text-align:center">كشف غياب اليوم: ${locD}</h3><table><tr><th>الاسم / الحالة</th><th>الصف</th><th class="no-print">المراسلة</th></tr>`;
-        dayAbs.forEach(st => {
-            const isNoAbs = st.name === "✅ لا يوجد غياب";
-            const isSent = st.sent === true;
-            h += `<tr style="${isNoAbs ? 'background:#ecfdf5' : ''}">
-                <td style="text-align:right; font-weight:${isNoAbs?'bold':'normal'}">${st.name}</td>
-                <td>${st.class}</td>
-                <td class="no-print">
-                    ${isNoAbs ? '<span style="color:#059669">مكتمل</span>' : `
-                    <button class="btn-sm ${isSent ? 'btn-done' : 'btn-green'}" onclick="sendAndSync(this, ${st.ts}, '${st.name}', '${st.phone}', 'wa')">${isSent ? 'تمت' : 'WA'}</button>
-                    <button class="btn-sm ${isSent ? 'btn-done' : 'btn-sms'}" onclick="sendAndSync(this, ${st.ts}, '${st.name}', '${st.phone}', 'sms')">${isSent ? 'تمت' : 'SMS'}</button>
-                    `}
-                </td></tr>`;
-        });
-        area.innerHTML = h + "</table>";
-    }
-
-    function sendAndSync(btn, ts, name, phone, type) {
-        const record = db.archive.find(a => a.ts === ts);
-        if (record) { record.sent = true; save(); }
-        btn.className = "btn-sm btn-done"; btn.innerText = "تمت";
-        let msg = db.template.replace('[name]', name);
-        if(type === 'wa') window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`);
-        else window.location.href = `sms:${phone}?body=${encodeURIComponent(msg)}`;
-    }
-
-    function generateClassReport() {
-        const cls = document.getElementById('reportClassSel').value;
-        const area = document.getElementById('classReportArea');
-        if(!cls) return;
-        let h = `<h3 style="text-align:center">سجل غياب صف: ${cls}</h3><table><tr><th>اسم الطالب / الحالة</th><th>مرات التكرار</th></tr>`;
-        
-        // إضافة بند "لا يوجد غياب" في تقرير الصف
-        const noAbsCount = db.archive.filter(a => a.class === cls && a.name === "✅ لا يوجد غياب").length;
-        h += `<tr style="background:#f0f9ff"><td>✅ أيام "لا يوجد غياب"</td><td><strong>${noAbsCount}</strong></td></tr>`;
-
-        db.classes[cls].forEach((st, i) => {
-            const abs = db.archive.filter(a => a.name === st.name && a.class === cls);
-            h += `<tr><td style="text-align:right">${st.name}</td><td><strong>${abs.length}</strong> <button class="btn-sm btn-orange details-btn" onclick="toggleDetails(${i})">👁️</button></td></tr>
-            <tr id="det-${i}" class="no-print" style="display:none; background:#f9f9f9;"><td colspan="2">${abs.map(a => `${a.date} <button class="btn-sm btn-red" onclick="deleteRec(${a.ts})">❌</button>`).join(' | ')}</td></tr>`;
-        });
-        area.innerHTML = h + "</table>";
-    }
-
-    function toggleDetails(i) { const d = document.getElementById('det-'+i); d.style.display = d.style.display==='none'?'table-row':'none'; }
-    function deleteRec(ts) { if(confirm("حذف؟")) { db.archive = db.archive.filter(a => a.ts !== ts); save(); generateClassReport(); } }
-
+    // --- واجهة المعلم والتنبيه الموحد ---
     function renderStudents() {
         const cls = document.getElementById('classSel').value;
         const area = document.getElementById('gridArea');
-        if(!cls) return;
+        const alertArea = document.getElementById('classStatusAlert');
+        if(!cls) return (area.innerHTML = "", alertArea.innerHTML = "");
+
+        const today = new Date().toLocaleDateString('ar-EG');
+        const todaysAbsence = db.archive.filter(a => a.class === cls && a.date === today);
+
+        // رسالة التنبيه الموحدة (تظهر لأي صف به بيانات مسجلة اليوم)
+        alertArea.innerHTML = todaysAbsence.length > 0 ? 
+            `<div style="color:red; font-weight:bold; font-size:12px;">⚠️ تم رصد غياب لهذا الصف اليوم مسبقاً.</div>` : "";
+
         document.getElementById('footerAction').style.display = "block";
         area.innerHTML = '<div class="student-grid"></div>';
+
         db.classes[cls].forEach(st => {
-            const d = document.createElement('div'); d.className = 'student-card'; d.innerHTML = `<strong>${st.name}</strong>`;
-            d.onclick = () => d.classList.toggle('selected');
+            const isAbsNow = todaysAbsence.some(a => a.name === st.name);
+            const d = document.createElement('div');
+            d.className = `student-card ${isAbsNow ? 'already-saved' : ''}`;
+            d.innerHTML = `<strong>${st.name}</strong>`;
+            if(!isAbsNow) d.onclick = () => d.classList.toggle('selected');
             area.querySelector('.student-grid').appendChild(d);
         });
     }
@@ -285,55 +224,203 @@
     function saveAbsenceOnly() {
         const sel = document.querySelectorAll('.student-card.selected');
         const cls = document.getElementById('classSel').value;
-        if(sel.length === 0) return alert("لم يتم تحديد طلاب غائبين، إذا كان الجميع حضور اضغط (لا يوجد غياب)");
+        if(sel.length === 0) return alert("اختر الطلاب الجدد الغائبين أو اضغط (لا يوجد غياب)");
+        
         const today = new Date().toLocaleDateString('ar-EG');
         sel.forEach(card => {
-            const name = card.querySelector('strong').innerText;
+            const name = card.querySelector('strong').innerText.trim();
             const st = db.classes[cls].find(s => s.name === name);
-            db.archive.push({ ...st, class: cls, date: today, ts: Date.now() + Math.random(), sent: false });
+            if(st) db.archive.push({ ...st, class: cls, date: today, ts: Date.now() + Math.random(), sent: false });
         });
-        save(); alert("تم حفظ الغياب"); location.reload();
+        save(); alert("تم الحفظ والمزامنة"); renderStudents();
     }
 
-    function renderManageTable() {
-        const cls = document.getElementById('manageClassSel').value;
-        const area = document.getElementById('manageTableArea');
-        if(!cls) return area.innerHTML = "";
-        let h = `<table><tr><th>الاسم</th><th>الهاتف</th><th>حذف</th></tr>`;
-        db.classes[cls].forEach((st, idx) => {
-            h += `<tr><td>${st.name}</td><td>${st.phone}</td><td><button class="btn-sm btn-red" onclick="db.classes['${cls}'].splice(${idx},1);save();renderManageTable()">❌</button></td></tr>`;
+    function markNoAbsence() {
+        const cls = document.getElementById('classSel').value;
+        if(!cls) return alert("الرجاء اختيار الصف");
+        const today = new Date().toLocaleDateString('ar-EG');
+        const alreadyHasData = db.archive.some(a => a.class === cls && a.date === today);
+        
+        if(alreadyHasData && !confirm("تم تسجيل بيانات لهذا الصف اليوم، هل تريد الحذف واستبداله بـ (لا يوجد غياب)؟")) return;
+        if(alreadyHasData) db.archive = db.archive.filter(a => !(a.class === cls && a.date === today));
+        
+        db.archive.push({ name: "✅ لا يوجد غياب اليوم", phone: "", class: cls, date: today, ts: Date.now(), sent: true });
+        save(); alert("تم تسجيل حضور كامل لصف " + cls); renderStudents();
+    }
+
+    // --- المراسلة الذكية ---
+    function loadAdminMessenger() {
+        const area = document.getElementById('adminMessenger');
+        const dIn = document.getElementById('historyDateSelector').value;
+        if(!dIn) return;
+        const locD = new Date(dIn).toLocaleDateString('ar-EG');
+        const dayAbs = db.archive.filter(a => a.date === locD);
+        if(dayAbs.length === 0) return area.innerHTML = "<p style='text-align:center'>لا توجد بيانات لهذا اليوم</p>";
+        
+        let h = `<h3 style="text-align:center">كشف غياب يوم: ${locD}</h3><table><tr><th>الاسم</th><th>الصف</th><th class="no-print">المراسلة</th></tr>`;
+        dayAbs.forEach(st => {
+            const isNoAbs = st.name === "✅ لا يوجد غياب اليوم";
+            const isSent = st.sent === true;
+            h += `<tr style="${isNoAbs ? 'background:#ecfdf5' : ''}"><td>${st.name}</td><td>${st.class}</td><td class="no-print">
+                ${isNoAbs ? '<span style="color:#059669; font-weight:bold;">حضور كامل</span>' : `
+                <button class="btn-sm ${isSent ? 'btn-done' : 'btn-green'}" onclick="sendAndSync(this, ${st.ts}, '${st.name}', '${st.phone}', '${st.class}', 'wa')">💬 ${isSent ? 'تمت' : 'واتساب'}</button>
+                <button class="btn-sm ${isSent ? 'btn-done' : 'btn-sms'}" onclick="sendAndSync(this, ${st.ts}, '${st.name}', '${st.phone}', '${st.class}', 'sms')">✉️ ${isSent ? 'تمت' : 'رسالة'}</button>`}
+            </td></tr>`;
         });
         area.innerHTML = h + "</table>";
     }
 
-    function updateSelectors() {
-        ['classSel', 'reportClassSel', 'manageClassSel'].forEach(id => {
-            const s = document.getElementById(id); if(!s) return;
-            const cur = s.value;
-            s.innerHTML = '<option value="">-- اختر الصف --</option>';
-            Object.keys(db.classes).sort().forEach(c => s.innerHTML += `<option value="${c}" ${c===cur?'selected':''}>${c}</option>`);
+    function sendAndSync(btn, ts, name, phone, cls, type) {
+        const record = db.archive.find(a => a.ts === ts);
+        if (record) { record.sent = true; save(); }
+        btn.className = "btn-sm btn-done"; btn.innerText = "تمت";
+        
+        let msg = db.template.replace('[name]', name).replace('[class]', cls);
+        let finalPhone = phone ? phone.replace(/[^0-9]/g, '') : '';
+        if(finalPhone.length === 8 && (finalPhone.startsWith('9') || finalPhone.startsWith('7'))) {
+            finalPhone = '968' + finalPhone;
+        }
+
+        if(type === 'wa') {
+            window.open(`https://api.whatsapp.com/send?phone=${finalPhone}&text=${encodeURIComponent(msg)}`, '_blank');
+        } else {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            window.location.href = isIOS ? `sms:${finalPhone}&body=${encodeURIComponent(msg)}` : `sms:${finalPhone}?body=${encodeURIComponent(msg)}`;
+        }
+    }
+
+    // --- إدارة الطلاب والتعديل المباشر ---
+    function renderManageTable() {
+        const cls = document.getElementById('manageClassSel').value;
+        const area = document.getElementById('manageTableArea');
+        if(!cls) return area.innerHTML = "";
+        let h = `<table><tr><th>الاسم (تعديل)</th><th>الهاتف</th><th>حذف</th></tr>`;
+        db.classes[cls].forEach((st, idx) => {
+            h += `<tr><td><input type="text" value="${st.name}" onchange="db.classes['${cls}'][${idx}].name=this.value; save()" style="border:none; background:transparent; width:100%; text-align:center; font-weight:bold;"></td>
+                <td><input type="tel" value="${st.phone}" onchange="db.classes['${cls}'][${idx}].phone=this.value; save()" style="border:none; background:transparent; width:100%; text-align:center;"></td>
+                <td><button class="btn-sm btn-red" onclick="db.classes['${cls}'].splice(${idx},1);save();renderManageTable()">❌</button></td></tr>`;
         });
+        area.innerHTML = h + "</table>";
+    }
+
+    function addNewStudentToClass() {
+        const cls = document.getElementById('manageClassSel').value;
+        const name = document.getElementById('newStudentName').value.trim();
+        const phone = document.getElementById('newStudentPhone').value.trim();
+        if(!cls || !name) return alert("اختر الصف واكتب الاسم");
+        db.classes[cls].push({ name: name, phone: phone });
+        save(); renderManageTable();
+        document.getElementById('newStudentName').value = ""; document.getElementById('newStudentPhone').value = "";
+    }
+
+    function addBulk() {
+        const name = document.getElementById('newClsName').value.trim();
+        const raw = document.getElementById('bulkPaste').value.trim();
+        if(!name || !raw) return alert("أكمل البيانات");
+        db.classes[name] = raw.split('\n').filter(l => l.trim()).map(line => {
+            const p = line.split(/[\s,،\t]+(?=\d)/);
+            return { name: p[0].trim(), phone: p[1] ? p[1].trim() : "" };
+        });
+        save(); updateSelectors(); alert("تم حفظ الصف بنجاح");
+        document.getElementById('newClsName').value = ""; document.getElementById('bulkPaste').value = "";
     }
 
     function renameClass() {
         const oldN = document.getElementById('manageClassSel').value;
         const newN = document.getElementById('renameClassInput').value.trim();
-        if(oldN && newN) { db.classes[newN] = db.classes[oldN]; delete db.classes[oldN]; db.archive.forEach(r => { if(r.class === oldN) r.class = newN; }); save(); updateSelectors(); }
+        if(oldN && newN) { 
+            db.classes[newN] = db.classes[oldN]; delete db.classes[oldN]; 
+            db.archive.forEach(r => { if(r.class === oldN) r.class = newN; }); 
+            save(); updateSelectors(); alert("تم تعديل الاسم");
+        }
     }
 
+    function deleteWholeClass() {
+        const cls = document.getElementById('manageClassSel').value;
+        if(cls && confirm("حذف الصف بالكامل؟")) { delete db.classes[cls]; save(); updateSelectors(); renderManageTable(); }
+    }
+
+    // --- أرشيف السجلات والحذف التفصيلي ---
+    function generateClassReport() {
+        const cls = document.getElementById('reportClassSel').value;
+        const area = document.getElementById('classReportArea');
+        if(!cls) return area.innerHTML = "";
+        let h = `<h3 style="text-align:center">سجل غياب صف: ${cls}</h3><table><tr><th>الاسم</th><th>إجمالي الغياب</th></tr>`;
+        const noAbsCount = db.archive.filter(a => a.class === cls && a.name === "✅ لا يوجد غياب اليوم").length;
+        h += `<tr style="background:#f0f9ff"><td>✅ أيام الحضور الكامل</td><td><strong>${noAbsCount}</strong></td></tr>`;
+        
+        db.classes[cls].forEach((st, i) => {
+            const absList = db.archive.filter(a => a.name === st.name && a.class === cls);
+            h += `<tr><td style="text-align:right">${st.name}</td><td><strong>${absList.length}</strong> <button class="btn-sm btn-orange no-print" onclick="document.getElementById('dr-${i}').toggleAttribute('hidden')">👁️ عرض</button></td></tr>
+            <tr id="dr-${i}" hidden class="no-print" style="background:#f9f9f9;"><td colspan="2" style="font-size:11px; padding:10px;">
+                ${absList.map(a => `<span>${a.date} <button class="btn-sm btn-red" onclick="deleteRecord(${a.ts})">🗑️ حذف</button> | </span>`).join('')}
+            </td></tr>`;
+        });
+        area.innerHTML = h + "</table>";
+    }
+
+    function deleteRecord(ts) {
+        if(confirm("حذف يوم الغياب هذا نهائياً؟")) { db.archive = db.archive.filter(a => a.ts !== ts); save(); generateClassReport(); }
+    }
+
+    // --- المخطط البياني المطور لمعالجة التواريخ ---
     function renderChart(type) {
         const ctx = document.getElementById('absChart').getContext('2d');
         if (myChart) myChart.destroy();
         const labels = Object.keys(db.classes);
-        const dataValues = labels.map(cls => db.archive.filter(rec => rec.class === cls && rec.name !== "✅ لا يوجد غياب").length);
-        myChart = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [{ label: 'إجمالي حالات الغياب', data: dataValues, backgroundColor: '#0ea5e9' }] } });
+        const now = Date.now();
+        const dataValues = labels.map(cls => {
+            return db.archive.filter(rec => {
+                const diffDays = (now - rec.ts) / (1000 * 60 * 60 * 24);
+                return rec.class === cls && rec.name !== "✅ لا يوجد غياب اليوم" && (type === 'week' ? diffDays <= 7 : diffDays <= 30);
+            }).length;
+        });
+        myChart = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [{ label: `الغياب (${type==='week'?'أسبوعي':'شهري'})`, data: dataValues, backgroundColor: '#0ea5e9' }] } });
+    }
+
+    // --- النسخ الاحتياطي ---
+    function exportBackup() {
+        const blob = new Blob([JSON.stringify(db)], { type: 'application/json' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = "نسخة_نظام_الغياب.json"; a.click();
+    }
+
+    function exportStudentsOnly() {
+        const data = { classes: db.classes };
+        const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = "بيانات_الطلاب.json"; a.click();
+    }
+
+    function importBackup(input) {
+        const r = new FileReader();
+        r.onload = (e) => { 
+            if(confirm("استبدال البيانات الحالية؟")) { db = JSON.parse(e.target.result); save(); location.reload(); }
+        };
+        r.readAsText(input.files[0]);
+    }
+
+    // --- التحديث والتنقل ---
+    function updateSelectors() {
+        ['classSel', 'reportClassSel', 'manageClassSel'].forEach(id => {
+            const s = document.getElementById(id); if(!s) return;
+            const cur = s.value; s.innerHTML = '<option value="">-- اختر الصف --</option>';
+            Object.keys(db.classes).sort().forEach(c => s.innerHTML += `<option value="${c}" ${c===cur?'selected':''}>${c}</option>`);
+        });
+    }
+
+    function updateSettings() {
+        db.teacherPin = document.getElementById('teacherPassEdit').value;
+        db.adminPin = document.getElementById('adminPassEdit').value;
+        db.template = document.getElementById('msgTemplate').value;
+        save(); alert("تم الحفظ");
     }
 
     function verifyAccess() {
         const pin = document.getElementById('passInput').value;
         if (pin === db.adminPin) showTab('admin');
         else if (pin === db.teacherPin) showTab('home');
-        else alert("خطأ");
+        else alert("الرمز السري غير صحيح");
     }
 
     function showTab(id) {
@@ -344,15 +431,9 @@
             document.getElementById('teacherPassEdit').value = db.teacherPin;
             document.getElementById('adminPassEdit').value = db.adminPin;
             document.getElementById('msgTemplate').value = db.template;
-            renderChart('week');
+            setTimeout(() => renderChart('week'), 100);
         }
-    }
-
-    function updateSettings() {
-        db.teacherPin = document.getElementById('teacherPassEdit').value;
-        db.adminPin = document.getElementById('adminPassEdit').value;
-        db.template = document.getElementById('msgTemplate').value;
-        save(); alert("تم الحفظ");
+        if(id === 'home') document.getElementById('dayDisplay').innerText = `📝 تسجيل الغياب: ${new Date().toLocaleDateString('ar-EG')}`;
     }
 
     function accessControl(tab) { document.querySelectorAll('.section').forEach(s => s.classList.remove('active')); document.getElementById('loginPage').classList.add('active'); }
